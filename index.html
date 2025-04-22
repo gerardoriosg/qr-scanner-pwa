@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escáner QR UDEM</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://unpkg.com/html5-qrcode@2.3.7/html5-qrcode.min.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 1rem; }
+    #reader { width: 100%; max-width: 400px; margin: 0 auto; }
+    #msg { margin-top: 1rem; font-size: 1.1rem; font-weight: bold; }
+    .exito { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Escáner de acceso</h2>
+  <div id="reader"></div>
+  <div id="msg"></div>
+
+  <script>
+    const msgBox = document.getElementById("msg");
+    let escanerActivo = false;
+
+    function mostrarMensaje(texto, tipo) {
+      msgBox.textContent = texto;
+      msgBox.className = tipo;
+    }
+
+    function enviarQR(qr) {
+      mostrarMensaje("Procesando...", "");
+      if (!navigator.onLine) {
+        guardarLocal(qr);
+        mostrarMensaje("Guardado localmente (sin conexión)", "exito");
+        return;
+      }
+      fetch("https://script.google.com/macros/s/PASTE_YOUR_DEPLOYED_SCRIPT_URL_HERE/exec", {
+        method: "POST",
+        body: JSON.stringify({ qrTexto: qr }),
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(res => res.json())
+      .then(res => {
+        const tipo = res.ok ? "exito" : "error";
+        mostrarMensaje(`${res.nombre ? "Bienvenido/a " + res.nombre + " - " + res.tipo : res.msg}`, tipo);
+        if (res.ok) sincronizarPendientes();
+      });
+    }
+
+    function guardarLocal(qr) {
+      let pendientes = JSON.parse(localStorage.getItem("pendientes") || "[]");
+      pendientes.push(qr);
+      localStorage.setItem("pendientes", JSON.stringify(pendientes));
+    }
+
+    function sincronizarPendientes() {
+      let pendientes = JSON.parse(localStorage.getItem("pendientes") || "[]");
+      if (pendientes.length > 0 && navigator.onLine) {
+        pendientes.forEach(qr => enviarQR(qr));
+        localStorage.removeItem("pendientes");
+      }
+    }
+
+    window.addEventListener("load", () => {
+      const qrScanner = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      qrScanner.start({ facingMode: "environment" }, config,
+        qr => {
+          if (!escanerActivo) {
+            escanerActivo = true;
+            qrScanner.stop();
+            enviarQR(qr);
+            setTimeout(() => {
+              escanerActivo = false;
+              qrScanner.start({ facingMode: "environment" }, config, () => {}, () => {});
+            }, 2000);
+          }
+        },
+        err => {}
+      );
+    });
+
+    window.addEventListener("online", sincronizarPendientes);
+  </script>
+</body>
+</html>
