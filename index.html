@@ -42,7 +42,10 @@
       }
       fetch("https://script.google.com/macros/s/AKfycbzmkppJFG6Ec1Gfp3YUVMqQJxsEghqwD1hzIqZMRvRnTZfZcUTZ-i2zMnx6dHrSjvi-/exec", {
         method: "POST",
-        body: JSON.stringify({ qrTexto: qr }),
+        body: JSON.stringify({ 
+          qrTexto: qr,
+          token: "*3_!W382dh382jxmoa3232ç23" // tu mismo token secreto
+        }),
         headers: { "Content-Type": "application/json" }
       })
       .then(res => res.json())
